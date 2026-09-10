@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=ZenOS Application Launcher
+NoDisplay=true
+Exec=@launcher@ %f
+MimeType=application/x-desktop;application/x-zenos-app;
+Terminal=false

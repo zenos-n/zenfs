@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-zenos-app">
+    <comment>ZenOS managed application launcher</comment>
+    <sub-class-of type="application/x-desktop"/>
+    <magic priority="100">
+      <match type="string" value="X-ZenOS-Managed=true" offset="0:128"/>
+    </magic>
+  </mime-type>
+</mime-info>
