@@ -11,6 +11,7 @@ import stat
 import sys
 
 from app_registry import REGISTRY_SCHEMA, valid_token
+from zenos_icon_metadata import icon_metadata
 
 
 MAX_REGISTRY_BYTES = 1024 * 1024
@@ -103,13 +104,13 @@ def icon_updates(root: Path) -> list[tuple[Path, str, str]]:
                 and stat.S_ISREG(icon_details.st_mode)
                 and not stat.S_ISLNK(icon_details.st_mode)
             ):
-                updates.append(
-                    (launcher, "metadata::custom-icon", icon_path.as_uri())
-                )
+                selected = icon_metadata(metadata.get("icon"), str(icon_path))
+                if selected:
+                    updates.append((launcher, *selected))
                 continue
-        icon_name = metadata.get("icon")
-        if icon_name and _simple_basename(icon_name):
-            updates.append((launcher, "metadata::custom-icon-name", icon_name))
+        selected = icon_metadata(metadata.get("icon"), None)
+        if selected:
+            updates.append((launcher, *selected))
     return updates
 
 
@@ -119,7 +120,17 @@ def seed_icons(root: Path) -> int:
     changed = 0
     for launcher, attribute, value in icon_updates(root):
         try:
-            Gio.File.new_for_path(str(launcher)).set_attribute_string(
+            location = Gio.File.new_for_path(str(launcher))
+            other = (
+                "metadata::custom-icon-name"
+                if attribute == "metadata::custom-icon"
+                else "metadata::custom-icon"
+            )
+            location.set_attribute(
+                other, Gio.FileAttributeType.INVALID, None,
+                Gio.FileQueryInfoFlags.NONE, None,
+            )
+            location.set_attribute_string(
                 attribute,
                 value,
                 Gio.FileQueryInfoFlags.NONE,

@@ -10,7 +10,13 @@ import stat
 from typing import List
 from urllib.parse import unquote, urlparse
 
-from gi.repository import Gio, GLib, GObject, Gtk, Nautilus
+import gi
+
+gi.require_version("Gtk", "4.0")
+gi.require_version("Nautilus", "4.0")
+from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Nautilus
+
+from zenos_icon_metadata import icon_metadata
 
 
 SYSTEM_APPS_ROOT = Path("/Apps")
@@ -137,22 +143,29 @@ class ZenOSAppsExtension(
             return
 
         icon = app.get_string("Icon")
-        custom_icon = Path(icon_file).as_uri() if icon_file else None
-        if custom_icon or icon:
+        display = Gdk.Display.get_default()
+        theme = Gtk.IconTheme.get_for_display(display) if display else None
+        selected = icon_metadata(icon, icon_file, theme.has_icon if theme else None)
+        if selected:
             try:
                 location = file_info.get_location()
-                attribute = (
-                    "metadata::custom-icon"
-                    if custom_icon
-                    else "metadata::custom-icon-name"
+                attribute, value = selected
+                other = (
+                    "metadata::custom-icon-name"
+                    if attribute == "metadata::custom-icon"
+                    else "metadata::custom-icon"
                 )
-                value = custom_icon or icon
                 current = location.query_info(
-                    attribute,
+                    f"{attribute},{other}",
                     Gio.FileQueryInfoFlags.NONE,
                     None,
-                ).get_attribute_string(attribute)
-                if current != value:
+                )
+                if current.has_attribute(other):
+                    location.set_attribute(
+                        other, Gio.FileAttributeType.INVALID, None,
+                        Gio.FileQueryInfoFlags.NONE, None,
+                    )
+                if current.get_attribute_string(attribute) != value:
                     location.set_attribute_string(
                         attribute,
                         value,

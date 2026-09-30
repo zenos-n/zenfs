@@ -63,6 +63,44 @@ class LayoutTests(unittest.TestCase):
         self.assertFalse(os.path.lexists(self.home / ".config"))
         self.assertTrue((self.home / ".private/Local/share").is_symlink())
 
+    def test_identical_cache_collision_preserves_destination_and_completes(self):
+        old = self.home / ".cache/mesa_shader_cache/73"
+        new = self.home / ".private/Live/mesa_shader_cache/73"
+        old.mkdir(parents=True)
+        new.mkdir(parents=True)
+        (old / "shader").write_bytes(b"same cached shader")
+        (new / "shader").write_bytes(b"same cached shader")
+        inode = (new / "shader").stat().st_ino
+        initialize_home(self.home)
+        initialize_home(self.home)
+        self.assertFalse(old.exists())
+        self.assertEqual(inode, (new / "shader").stat().st_ino)
+        self.assertEqual(b"same cached shader", (new / "shader").read_bytes())
+
+    def test_different_cache_collision_preserves_both_files(self):
+        old = self.home / ".cache"
+        new = self.home / ".private/Live"
+        old.mkdir(parents=True)
+        new.mkdir(parents=True)
+        (old / "shader").write_bytes(b"old")
+        (new / "shader").write_bytes(b"new")
+        with self.assertRaisesRegex(ZenFSError, "collision"):
+            initialize_home(self.home)
+        self.assertEqual(b"old", (old / "shader").read_bytes())
+        self.assertEqual(b"new", (new / "shader").read_bytes())
+
+    def test_cache_symlink_collision_is_not_deduplicated(self):
+        old = self.home / ".cache"
+        new = self.home / ".private/Live"
+        old.mkdir(parents=True)
+        new.mkdir(parents=True)
+        (new / "shader").write_bytes(b"same")
+        (old / "shader").symlink_to(new / "shader")
+        with self.assertRaisesRegex(ZenFSError, "collision"):
+            initialize_home(self.home)
+        self.assertTrue((old / "shader").is_symlink())
+        self.assertEqual(b"same", (new / "shader").read_bytes())
+
     def test_private_symlink_is_refused(self):
         self.home.mkdir(parents=True)
         outside = self.root / "outside"

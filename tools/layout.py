@@ -34,26 +34,54 @@ def directory(path: Path, mode: int = 0o700) -> None:
     path.chmod(mode)
 
 
-def check_merge(source: Path, target: Path) -> None:
+def identical_regular_files(source: Path, target: Path) -> bool:
+    try:
+        descriptors = []
+        try:
+            for path in (source, target):
+                descriptors.append(os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK))
+            details = [os.fstat(fd) for fd in descriptors]
+            if not all(stat.S_ISREG(info.st_mode) for info in details):
+                return False
+            if details[0].st_size != details[1].st_size:
+                return False
+            while True:
+                chunks = [os.read(fd, 65536) for fd in descriptors]
+                if chunks[0] != chunks[1]:
+                    return False
+                if not chunks[0]:
+                    return True
+        finally:
+            for descriptor in descriptors:
+                os.close(descriptor)
+    except OSError:
+        return False
+
+
+def check_merge(source: Path, target: Path, allow_identical_files: bool = False) -> None:
     if not os.path.lexists(source) or not os.path.lexists(target):
         return
     if source.is_dir() and not source.is_symlink() and target.is_dir() and not target.is_symlink():
         for child in source.iterdir():
-            check_merge(child, target / child.name)
+            check_merge(child, target / child.name, allow_identical_files)
+        return
+    if allow_identical_files and identical_regular_files(source, target):
         return
     raise ZenFSError(f"refusing migration collision: {source} -> {target}")
 
 
-def merge(source: Path, target: Path) -> None:
+def merge(source: Path, target: Path, allow_identical_files: bool = False) -> None:
     if not os.path.lexists(source):
         return
-    check_merge(source, target)
+    check_merge(source, target, allow_identical_files)
     directory(target.parent)
     if not os.path.lexists(target):
         rename_noreplace(source, target)
+    elif allow_identical_files and identical_regular_files(source, target):
+        source.unlink()
     else:
         for child in list(source.iterdir()):
-            merge(child, target / child.name)
+            merge(child, target / child.name, allow_identical_files)
         source.rmdir()
 
 
@@ -96,7 +124,7 @@ def initialize_home(home: Path, strict: bool = True) -> None:
             else:
                 raise ZenFSError(f"unexpected compatibility symlink: {source}")
         else:
-            merge(source, target)
+            merge(source, target, allow_identical_files=old == ".cache")
         if not strict and "/" not in old and old not in {".bash_history", ".zsh_history", ".python_history", ".lesshst"}:
             link(source, target)
     for name, target in (("lib", "Packages/lib"), ("share", "Packages"), ("state", "State")):

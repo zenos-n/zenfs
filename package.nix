@@ -56,6 +56,7 @@ stdenvNoCC.mkDerivation {
         --prefix PATH : "$out/bin:${runtimePath}"
     done
     install -Dm644 "$nautilus/zenos_apps.py" "$out/share/nautilus-python/extensions/zenos_apps.py"
+    install -Dm644 "$nautilus/zenos_icon_metadata.py" "$out/share/nautilus-python/extensions/zenos_icon_metadata.py"
     substituteInPlace "$out/share/nautilus-python/extensions/zenos_apps.py" \
       --replace-fail '@zen_app_launch@' "$out/bin/zen-app-launch" \
       --replace-fail '@zen_appimage@' "$out/bin/zen-appimage"
