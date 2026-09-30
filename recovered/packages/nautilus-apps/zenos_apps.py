@@ -13,7 +13,10 @@ from urllib.parse import unquote, urlparse
 import gi
 
 gi.require_version("Gtk", "4.0")
-gi.require_version("Nautilus", "4.0")
+try:
+    gi.require_version("Nautilus", "4.1")
+except ValueError:
+    gi.require_version("Nautilus", "4.0")
 from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Nautilus
 
 from zenos_icon_metadata import icon_metadata
