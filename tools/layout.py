@@ -2,9 +2,11 @@
 """Initialize the ZenFS hierarchy without replacing existing data."""
 
 import argparse
+import json
 import os
 from pathlib import Path
 import stat
+import sqlite3
 import sys
 
 from zenfsctl import ZenFSError, load_json_object, rename_noreplace
@@ -95,6 +97,29 @@ def link(path: Path, target: Path) -> None:
     path.symlink_to(target)
 
 
+def relocate_codex_transcripts(source: Path, target: Path) -> None:
+    """Keep indexed conversations readable after moving CODEX_HOME."""
+    prefix = str(source) + "/"
+    for database in target.glob("state_*.sqlite"):
+        connection = sqlite3.connect(database, timeout=30)
+        try:
+            with connection:
+                for table, columns in {
+                    "threads": ("rollout_path", "agent_path"),
+                    "rollout_migration_skipped_rollouts": ("rollout_path",),
+                }.items():
+                    existing = {row[1] for row in connection.execute(f'PRAGMA table_info("{table}")')}
+                    for column in columns:
+                        if column in existing:
+                            connection.execute(
+                                f'UPDATE "{table}" SET "{column}" = ? || substr("{column}", ?) '
+                                f'WHERE substr("{column}", 1, ?) = ?',
+                                (str(target) + "/", len(prefix) + 1, len(prefix), prefix),
+                            )
+        finally:
+            connection.close()
+
+
 def initialize_home(home: Path, strict: bool = True) -> None:
     home = Path(os.path.abspath(home))
     directory(home)
@@ -108,11 +133,28 @@ def initialize_home(home: Path, strict: bool = True) -> None:
         (".local/state", "State"), (".local", "Local"),
         (".gnupg", "Config/gnupg"), (".ssh", "Config/ssh"),
         (".mozilla", "Config/mozilla"), (".bash_history", "State/shell/bash_history"),
+        (".codex", "Packages/codex"), (".npm", "Live/npm"),
         (".zsh_history", "State/shell/zsh_history"),
         (".python_history", "State/python/history"), (".lesshst", "State/less/history"),
     ]
+    deferred = set()
     for old, new in migrations:
         source, target = home / old, private / new
+        # System switches can run user initialization during a live session.
+        # Let the next login migrate Codex after its daemon has stopped.
+        if old == ".codex":
+            try:
+                pid = json.loads((source / "app-server-daemon/daemon.pid").read_text())["pid"]
+                command = Path(f"/proc/{int(pid)}/cmdline").read_bytes()
+                if b"codex" in command:
+                    deferred.add(old)
+                    continue
+            except (OSError, ValueError, KeyError, TypeError):
+                pass
+            # A live session can expose the new CODEX_HOME through a temporary
+            # backwards link. Remove only that exact link before the real move.
+            if target.is_symlink() and target.readlink() == source:
+                target.unlink()
         # .local itself may already be the compatibility link.
         if source.parent != home and source.parent.is_symlink():
             continue
@@ -125,6 +167,8 @@ def initialize_home(home: Path, strict: bool = True) -> None:
                 raise ZenFSError(f"unexpected compatibility symlink: {source}")
         else:
             merge(source, target, allow_identical_files=old == ".cache")
+        if old == ".codex":
+            relocate_codex_transcripts(source, target)
         if not strict and "/" not in old and old not in {".bash_history", ".zsh_history", ".python_history", ".lesshst"}:
             link(source, target)
     for name, target in (("lib", "Packages/lib"), ("share", "Packages"), ("state", "State")):
@@ -133,7 +177,7 @@ def initialize_home(home: Path, strict: bool = True) -> None:
         for source in sorted(home.iterdir()):
             # Flatpak's CLI and libflatpak use ~/.var/app independently of XDG.
             # Keep this exception until the complete stack redirects app data.
-            if source.name.startswith(".") and source.name not in {".private", ".var"}:
+            if source.name.startswith(".") and source.name not in {".private", ".var"} | deferred:
                 merge(source, private / "Legacy" / source.name[1:])
     for name in XDG_DIRECTORIES:
         directory(home / name, 0o750)

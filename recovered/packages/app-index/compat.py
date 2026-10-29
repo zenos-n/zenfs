@@ -13,10 +13,12 @@ import sys
 import tempfile
 from typing import NoReturn, Sequence
 
-from app_registry import valid_token
+from app_registry import app_token, valid_token
 
 
 SETTINGS_SCHEMA = 1
+SEAHORSE_TOKEN = app_token("nix-config", "org.gnome.seahorse.Application.desktop")
+GNOSIS_TOKEN = app_token("nix-config", "com.neg-zero.Gnosis.desktop")
 SHAREABLE_DIRECTORIES = frozenset(
     {
         "Desktop",
@@ -37,11 +39,11 @@ def app_state(home: Path, token: str) -> Path:
     return home / ".private/State/zenos/apps" / token
 
 
-def default_settings() -> dict[str, object]:
+def default_settings(token: str | None = None) -> dict[str, object]:
     return {
         "schema": SETTINGS_SCHEMA,
-        "syntheticHome": False,
-        "sharedDirectories": [],
+        "syntheticHome": token in {SEAHORSE_TOKEN, GNOSIS_TOKEN},
+        "sharedDirectories": sorted(SHAREABLE_DIRECTORIES) if token == GNOSIS_TOKEN else [],
     }
 
 
@@ -73,7 +75,7 @@ def load_settings(home: Path, token: str) -> dict[str, object]:
             raise ValueError("compatibility settings are not a regular file")
         return _validate_settings(json.loads(path.read_text(encoding="utf-8")))
     except FileNotFoundError:
-        return default_settings()
+        return default_settings(token)
     except (json.JSONDecodeError, OSError, UnicodeError) as error:
         raise ValueError("cannot read compatibility settings") from error
 
@@ -150,20 +152,12 @@ def sandbox_command(
 
     arguments = [
         bwrap,
-        "--ro-bind",
+        "--bind",
         "/",
         "/",
         "--dev-bind",
         "/dev",
         "/dev",
-        "--proc",
-        "/proc",
-        "--bind",
-        "/tmp",
-        "/tmp",
-        "--bind",
-        str(runtime_directory),
-        str(runtime_directory),
         "--bind",
         str(synthetic_home),
         str(home),
@@ -171,6 +165,11 @@ def sandbox_command(
         str(private),
         str(home / ".private"),
     ]
+
+    if token == SEAHORSE_TOKEN:
+        ssh = private / "Config/ssh"
+        _private_directory(ssh)
+        arguments.extend(["--bind", str(ssh), str(home / ".ssh")])
 
     for name in settings["sharedDirectories"]:
         source = home / name

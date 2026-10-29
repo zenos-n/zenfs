@@ -9,6 +9,17 @@ TOKEN = "a" * 64
 
 
 class CompatibilityTests(unittest.TestCase):
+    def test_gnosis_defaults_to_private_home_with_public_folders(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            settings = compat.load_settings(Path(directory), compat.GNOSIS_TOKEN)
+            self.assertTrue(settings["syntheticHome"])
+            self.assertEqual(sorted(compat.SHAREABLE_DIRECTORIES), settings["sharedDirectories"])
+
+    def test_seahorse_defaults_to_a_synthetic_home(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            token = compat.app_token("nix-config", "org.gnome.seahorse.Application.desktop")
+            self.assertTrue(compat.load_settings(Path(directory), token)["syntheticHome"])
+
     def test_defaults_do_not_enable_synthetic_home(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             self.assertEqual(
@@ -75,6 +86,10 @@ class CompatibilityTests(unittest.TestCase):
             )
 
             state = compat.app_state(home, TOKEN)
+            self.assertEqual(["/bin/bwrap", "--bind", "/", "/"], command[:4])
+            self.assertNotIn("--clearenv", command)
+            self.assertIn(["--dev-bind", "/dev", "/dev"],
+                          [command[index:index + 3] for index in range(len(command) - 2)])
             self.assertIn(
                 ["--bind", str(state / "home"), str(home)],
                 [command[index : index + 3] for index in range(len(command) - 2)],

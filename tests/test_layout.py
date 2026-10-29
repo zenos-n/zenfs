@@ -2,6 +2,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import sqlite3
 import unittest
 from unittest.mock import patch
 
@@ -155,6 +156,37 @@ class LayoutTests(unittest.TestCase):
         self.assertIsNone(managed_identity(manifest, username="alice", home="/tmp/alice"))
         self.assertNotIn("NIX_PROFILE", environment(self.home))
         self.assertEqual(str(self.home / ".private/Config"), environment(self.home)["XDG_CONFIG_HOME"])
+        for key, path in {"CODEX_HOME": "Packages/codex", "NPM_CONFIG_CACHE": "Live/npm",
+                          "MESA_SHADER_CACHE_DIR": "Live/mesa_shader_cache"}.items():
+            self.assertEqual(str(self.home / ".private" / path), environment(self.home)[key])
+
+    def test_codex_and_npm_migrate_to_their_runtime_paths(self):
+        for name in [".codex", ".npm"]:
+            (self.home / name).mkdir(parents=True, exist_ok=True)
+            (self.home / name / "data").write_text(name)
+        with sqlite3.connect(self.home / ".codex/state_5.sqlite") as db:
+            db.execute("CREATE TABLE threads (rollout_path TEXT)")
+            db.execute("INSERT INTO threads VALUES (?)", (str(self.home / ".codex/sessions/thread.jsonl"),))
+        initialize_home(self.home)
+        self.assertEqual(".codex", (self.home / ".private/Packages/codex/data").read_text())
+        self.assertEqual(".npm", (self.home / ".private/Live/npm/data").read_text())
+        with sqlite3.connect(self.home / ".private/Packages/codex/state_5.sqlite") as db:
+            self.assertEqual(str(self.home / ".private/Packages/codex/sessions/thread.jsonl"),
+                             db.execute("SELECT rollout_path FROM threads").fetchone()[0])
+
+    def test_live_codex_migration_waits_until_the_daemon_stops(self):
+        daemon = self.home / ".codex/app-server-daemon"
+        daemon.mkdir(parents=True)
+        (daemon / "daemon.pid").write_text(json.dumps({"pid": 12345}))
+        with patch("layout.Path.read_bytes", return_value=b"codex\0app-server"):
+            initialize_home(self.home)
+        self.assertTrue(daemon.exists())
+        target = self.home / ".private/Packages/codex"
+        target.symlink_to(self.home / ".codex")
+        with patch("layout.Path.read_bytes", side_effect=FileNotFoundError):
+            initialize_home(self.home)
+        self.assertFalse((self.home / ".codex").exists())
+        self.assertTrue((self.home / ".private/Packages/codex/app-server-daemon/daemon.pid").exists())
 
     def test_flatpak_reconciliation_does_not_delete_remote(self):
         descriptor = self.root / "test.flatpakrepo"
