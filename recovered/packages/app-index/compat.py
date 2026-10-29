@@ -19,6 +19,7 @@ from app_registry import app_token, valid_token
 SETTINGS_SCHEMA = 1
 SEAHORSE_TOKEN = app_token("nix-config", "org.gnome.seahorse.Application.desktop")
 GNOSIS_TOKEN = app_token("nix-config", "com.neg-zero.Gnosis.desktop")
+STEAM_TOKEN = app_token("nix-config", "steam.desktop")
 SHAREABLE_DIRECTORIES = frozenset(
     {
         "Desktop",
@@ -42,8 +43,8 @@ def app_state(home: Path, token: str) -> Path:
 def default_settings(token: str | None = None) -> dict[str, object]:
     return {
         "schema": SETTINGS_SCHEMA,
-        "syntheticHome": token in {SEAHORSE_TOKEN, GNOSIS_TOKEN},
-        "sharedDirectories": sorted(SHAREABLE_DIRECTORIES) if token == GNOSIS_TOKEN else [],
+        "syntheticHome": token in {SEAHORSE_TOKEN, GNOSIS_TOKEN, STEAM_TOKEN},
+        "sharedDirectories": sorted(SHAREABLE_DIRECTORIES) if token in {GNOSIS_TOKEN, STEAM_TOKEN} else [],
     }
 
 

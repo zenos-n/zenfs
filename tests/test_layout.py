@@ -160,6 +160,24 @@ class LayoutTests(unittest.TestCase):
                           "MESA_SHADER_CACHE_DIR": "Live/mesa_shader_cache"}.items():
             self.assertEqual(str(self.home / ".private" / path), environment(self.home)[key])
 
+    def test_steam_bootstrap_links_and_pipe_move_to_private_home(self):
+        token = "68561f488261e6f7d6d63a8f8765d6f75091a558409550efeb2cc3c111f5b280"
+        steam = self.home / ".steam"
+        steam.mkdir(parents=True)
+        (steam / "registry.vdf").write_text("preferences")
+        os.mkfifo(steam / "steam.pipe")
+        (self.home / ".steampath").symlink_to(steam / "sdk32/steam")
+        (self.home / ".steampid").symlink_to(steam / "steam.pid")
+        initialize_home(self.home, strict=True)
+        initialize_home(self.home, strict=True)
+        private_home = self.home / ".private/State/zenos/apps" / token / "home"
+        self.assertEqual((private_home / ".steam/registry.vdf").read_text(), "preferences")
+        self.assertTrue((private_home / ".steam/steam.pipe").is_fifo())
+        self.assertEqual((private_home / ".steampath").readlink(), steam / "sdk32/steam")
+        self.assertEqual((private_home / ".steampid").readlink(), steam / "steam.pid")
+        for name in [".steam", ".steampath", ".steampid"]:
+            self.assertFalse(os.path.lexists(self.home / name))
+
     def test_android_build_data_migrates_to_private_runtime_paths(self):
         destinations = {".android": "Config/android", ".gradle": "Packages/gradle", ".m2": "Packages/maven/.m2"}
         for old in destinations:

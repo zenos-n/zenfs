@@ -136,6 +136,9 @@ def initialize_home(home: Path, strict: bool = True) -> None:
         (".codex", "Packages/codex"), (".npm", "Live/npm"),
         (".android", "Config/android"), (".gradle", "Packages/gradle"),
         (".m2", "Packages/maven/.m2"),
+        (".steam", "State/zenos/apps/68561f488261e6f7d6d63a8f8765d6f75091a558409550efeb2cc3c111f5b280/home/.steam"),
+        (".steampath", "State/zenos/apps/68561f488261e6f7d6d63a8f8765d6f75091a558409550efeb2cc3c111f5b280/home/.steampath"),
+        (".steampid", "State/zenos/apps/68561f488261e6f7d6d63a8f8765d6f75091a558409550efeb2cc3c111f5b280/home/.steampid"),
         (".zsh_history", "State/shell/zsh_history"),
         (".python_history", "State/python/history"), (".lesshst", "State/less/history"),
     ]
@@ -159,6 +162,9 @@ def initialize_home(home: Path, strict: bool = True) -> None:
                 target.unlink()
         # .local itself may already be the compatibility link.
         if source.parent != home and source.parent.is_symlink():
+            continue
+        if source.is_symlink() and old in {".steampath", ".steampid"}:
+            merge(source, target)
             continue
         if source.is_symlink():
             if os.readlink(source) == str(target):

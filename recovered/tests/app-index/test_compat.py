@@ -9,6 +9,11 @@ TOKEN = "a" * 64
 
 
 class CompatibilityTests(unittest.TestCase):
+    def test_steam_uses_a_private_home_with_public_folders(self) -> None:
+        settings = compat.default_settings(compat.STEAM_TOKEN)
+        self.assertTrue(settings["syntheticHome"])
+        self.assertEqual(sorted(compat.SHAREABLE_DIRECTORIES), settings["sharedDirectories"])
+
     def test_gnosis_defaults_to_private_home_with_public_folders(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             settings = compat.load_settings(Path(directory), compat.GNOSIS_TOKEN)
