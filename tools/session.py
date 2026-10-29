@@ -32,6 +32,8 @@ def environment(home):
     paths = {
         "XDG_CACHE_HOME": "Live", "XDG_CONFIG_HOME": "Config",
         "XDG_DATA_HOME": "Packages", "XDG_STATE_HOME": "State",
+        "ANDROID_USER_HOME": "Config/android", "ANDROID_EMULATOR_HOME": "Config/android",
+        "ANDROID_AVD_HOME": "Packages/android/avd", "GRADLE_USER_HOME": "Packages/gradle",
         "CARGO_HOME": "Packages/cargo", "GIT_CONFIG_GLOBAL": "Config/git/config",
         "CODEX_HOME": "Packages/codex",
         "ZDOTDIR": "Config/zsh",
@@ -43,7 +45,20 @@ def environment(home):
         "PYTHON_HISTORY": "State/python/history", "RUSTUP_HOME": "Packages/rustup",
         "ZENOS_USER_APPS_DIR": "Apps",
     }
-    return {name: str(private / path) for name, path in paths.items()}
+    result = {name: str(private / path) for name, path in paths.items()}
+    # Gradle's mavenLocal() also reads Maven's JVM repository property.
+    repository = private / "Packages/maven/.m2/repository"
+    properties = {
+        "GRADLE_OPTS": {"maven.repo.local": repository},
+        "MAVEN_OPTS": {"maven.repo.local": repository, "user.home": private / "Packages/maven"},
+    }
+    for name, values in properties.items():
+        arguments = shlex.split(os.environ.get(name, ""))
+        arguments = [argument for argument in arguments if not any(
+            argument.startswith(f"-D{key}=") for key in values
+        )]
+        result[name] = shlex.join(arguments + [f"-D{key}={value}" for key, value in values.items()])
+    return result
 
 
 def reconcile_flatpak(policy, scope, *, run=subprocess.run):

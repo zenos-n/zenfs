@@ -160,6 +160,27 @@ class LayoutTests(unittest.TestCase):
                           "MESA_SHADER_CACHE_DIR": "Live/mesa_shader_cache"}.items():
             self.assertEqual(str(self.home / ".private" / path), environment(self.home)[key])
 
+    def test_android_build_data_migrates_to_private_runtime_paths(self):
+        destinations = {".android": "Config/android", ".gradle": "Packages/gradle", ".m2": "Packages/maven/.m2"}
+        for old in destinations:
+            source = self.home / old
+            source.mkdir(parents=True)
+            (source / "data").write_text(old)
+        initialize_home(self.home, strict=True)
+        initialize_home(self.home, strict=True)
+        for old, destination in destinations.items():
+            self.assertFalse((self.home / old).exists())
+            self.assertEqual((self.home / ".private" / destination / "data").read_text(), old)
+        with patch.dict(os.environ, {"GRADLE_OPTS": "-Xmx1g -Dmaven.repo.local=/old"}):
+            env = environment(self.home)
+            self.assertIn("-Xmx1g", env["GRADLE_OPTS"])
+            self.assertNotIn("/old", env["GRADLE_OPTS"])
+            self.assertIn(str(self.home / ".private/Packages/maven/.m2/repository"), env["GRADLE_OPTS"])
+            self.assertEqual(env["GRADLE_USER_HOME"], str(self.home / ".private/Packages/gradle"))
+            self.assertEqual(env["ANDROID_USER_HOME"], str(self.home / ".private/Config/android"))
+            with patch.dict(os.environ, env):
+                self.assertEqual(environment(self.home), env)
+
     def test_codex_and_npm_migrate_to_their_runtime_paths(self):
         for name in [".codex", ".npm"]:
             (self.home / name).mkdir(parents=True, exist_ok=True)

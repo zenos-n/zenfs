@@ -134,6 +134,8 @@ def initialize_home(home: Path, strict: bool = True) -> None:
         (".gnupg", "Config/gnupg"), (".ssh", "Config/ssh"),
         (".mozilla", "Config/mozilla"), (".bash_history", "State/shell/bash_history"),
         (".codex", "Packages/codex"), (".npm", "Live/npm"),
+        (".android", "Config/android"), (".gradle", "Packages/gradle"),
+        (".m2", "Packages/maven/.m2"),
         (".zsh_history", "State/shell/zsh_history"),
         (".python_history", "State/python/history"), (".lesshst", "State/less/history"),
     ]
