@@ -13,6 +13,7 @@ import sys
 import tempfile
 
 from app_index import build_source_views
+from desktop_exports import export_desktop_entries
 from flatpak import validate_remote
 from layout import initialize_home
 from zenfsctl import ZenFSError, command_verify_marker, load_json_object
@@ -103,9 +104,10 @@ def verify_drive(drive):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, default=Path("/etc/zenfs/manifest.json"))
-    parser.add_argument("action", choices=("environment", "init", "index", "flatpak-user", "flatpak-system", "verify-drive"))
+    parser.add_argument("action", choices=("environment", "init", "index", "export-desktop", "flatpak-user", "flatpak-system", "verify-drive"))
     parser.add_argument("--shell", action="store_true")
     parser.add_argument("--drive")
+    parser.add_argument("--profile", type=Path)
     args = parser.parse_args()
     try:
         manifest = load_json_object(args.manifest)
@@ -125,7 +127,11 @@ def main():
                 print(f"export {name}={shlex.quote(value)}" if args.shell else f"{name}={value}")
             return 0
         os.environ.update(values)
-        if args.action == "init":
+        if args.action == "export-desktop":
+            if args.profile is None:
+                raise ValueError("desktop export requires --profile")
+            export_desktop_entries(home, args.profile)
+        elif args.action == "init":
             initialize_home(home, manifest["strict"])
         elif args.action == "index":
             build_source_views(home, home / ".private/Apps", username, scope="user")

@@ -125,3 +125,13 @@ there, including custom profiles. These environment wrappers preserve the
 working directory, other environment variables and full filesystem access.
 They activate only for a home containing .private. No visible home symlinks
 are created. GUI/XDG settings and absolute recording output paths stay shared.
+
+## Native desktop launchers
+
+User activation exports profile .desktop links into the stable real directory
+.private/Packages/applications. GNOME/GLib can miss changes behind a switched
+Nix profile symlink. Stable-directory entry replacement emits a discovery event
+without requiring a desktop restart. Desktop IDs stay unchanged. The private
+State/zenos/desktop-exports.json manifest records ownership; user overrides are
+preserved, updates replace only owned links, and removals remove only owned links.
+Only top-level profile .desktop entries are exported. /Apps remains separate.

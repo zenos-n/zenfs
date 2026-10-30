@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from layout import initialize_hierarchy, initialize_home
 from session import environment, managed_identity, reconcile_flatpak, verify_drive
+from desktop_exports import export_desktop_entries
 from zenfsctl import ZenFSError
 
 
@@ -177,6 +178,27 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual((private_home / ".steampid").readlink(), steam / "steam.pid")
         for name in [".steam", ".steampath", ".steampid"]:
             self.assertFalse(os.path.lexists(self.home / name))
+
+    def test_desktop_exports_follow_updates_and_preserve_user_overrides(self):
+        first = self.root / "profile-one"
+        second = self.root / "profile-two"
+        for profile in (first, second):
+            entries = profile / "share/applications"
+            entries.mkdir(parents=True)
+            (entries / "chat.desktop").write_text("[Desktop Entry]\nName=Chat\n")
+            (entries / "custom.desktop").write_text("upstream")
+        target = self.home / ".private/Packages/applications"
+        target.mkdir(parents=True)
+        (target / "custom.desktop").write_text("user override")
+        export_desktop_entries(self.home, first)
+        self.assertEqual((target / "chat.desktop").readlink(), first / "share/applications/chat.desktop")
+        export_desktop_entries(self.home, second)
+        self.assertEqual((target / "chat.desktop").readlink(), second / "share/applications/chat.desktop")
+        self.assertEqual((target / "custom.desktop").read_text(), "user override")
+        (second / "share/applications/chat.desktop").unlink()
+        export_desktop_entries(self.home, second)
+        self.assertFalse((target / "chat.desktop").exists())
+        self.assertEqual((target / "custom.desktop").read_text(), "user override")
 
     def test_nvidia_profile_migrates_to_recorder_private_home(self):
         profile = self.home / ".nv/nvidia-application-profiles-rc.d/custom"
