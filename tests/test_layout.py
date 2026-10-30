@@ -178,6 +178,16 @@ class LayoutTests(unittest.TestCase):
         for name in [".steam", ".steampath", ".steampid"]:
             self.assertFalse(os.path.lexists(self.home / name))
 
+    def test_nvidia_profile_migrates_to_recorder_private_home(self):
+        profile = self.home / ".nv/nvidia-application-profiles-rc.d/custom"
+        profile.parent.mkdir(parents=True)
+        profile.write_text("profile sentinel")
+        initialize_home(self.home, strict=True)
+        initialize_home(self.home, strict=True)
+        target = self.home / ".private/Packages/gpu-screen-recorder/.nv/nvidia-application-profiles-rc.d/custom"
+        self.assertEqual(target.read_text(), "profile sentinel")
+        self.assertFalse((self.home / ".nv").exists())
+
     def test_android_build_data_migrates_to_private_runtime_paths(self):
         destinations = {".android": "Config/android", ".gradle": "Packages/gradle", ".m2": "Packages/maven/.m2"}
         for old in destinations:

@@ -135,6 +135,7 @@ def initialize_home(home: Path, strict: bool = True) -> None:
         (".mozilla", "Config/mozilla"), (".bash_history", "State/shell/bash_history"),
         (".codex", "Packages/codex"), (".npm", "Live/npm"),
         (".android", "Config/android"), (".gradle", "Packages/gradle"),
+        (".nv", "Packages/gpu-screen-recorder/.nv"),
         (".m2", "Packages/maven/.m2"),
         (".steam", "State/zenos/apps/68561f488261e6f7d6d63a8f8765d6f75091a558409550efeb2cc3c111f5b280/home/.steam"),
         (".steampath", "State/zenos/apps/68561f488261e6f7d6d63a8f8765d6f75091a558409550efeb2cc3c111f5b280/home/.steampath"),

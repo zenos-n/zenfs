@@ -112,3 +112,16 @@ The fake users action exits before NixOS's real `/run/current-system` postamble.
 Graphical acceptance still requires checking Nautilus source navigation, icons,
 ordinary and managed launcher activation, and real AppImage/Flatpak execution
 in the independent VM after composition installs the package.
+
+## Android and recorder compatibility homes
+
+ZenPkgs wraps adb35.0.2 (which ignores ANDROID_USER_HOME) with HOME under
+.private/Packages/android-tools and a private .android link to Config/android.
+Existing pairing keys migrate to Config/android unchanged. Restart an existing
+ADB server after migration, since it retains the environment it launched with.
+GPU Screen Recorder5.13.8 installs an NVIDIA performance profile unconditionally;
+its command HOME is .private/Packages/gpu-screen-recorder. Old .nv data migrates
+there, including custom profiles. These environment wrappers preserve the
+working directory, other environment variables and full filesystem access.
+They activate only for a home containing .private. No visible home symlinks
+are created. GUI/XDG settings and absolute recording output paths stay shared.
