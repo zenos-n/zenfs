@@ -34,6 +34,8 @@ def environment(home):
         "XDG_CACHE_HOME": "Live", "XDG_CONFIG_HOME": "Config",
         "XDG_DATA_HOME": "Packages", "XDG_STATE_HOME": "State",
         "ANDROID_USER_HOME": "Config/android", "ANDROID_EMULATOR_HOME": "Config/android",
+        # Analytics31.x reads PREFS_ROOT directly and ignores ANDROID_USER_HOME.
+        "ANDROID_PREFS_ROOT": "Config/android",
         "ANDROID_AVD_HOME": "Packages/android/avd", "GRADLE_USER_HOME": "Packages/gradle",
         "CARGO_HOME": "Packages/cargo", "GIT_CONFIG_GLOBAL": "Config/git/config",
         "CODEX_HOME": "Packages/codex",

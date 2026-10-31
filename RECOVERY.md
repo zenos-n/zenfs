@@ -135,3 +135,11 @@ without requiring a desktop restart. Desktop IDs stay unchanged. The private
 State/zenos/desktop-exports.json manifest records ownership; user overrides are
 preserved, updates replace only owned links, and removals remove only owned links.
 Only top-level profile .desktop entries are exported. /Apps remains separate.
+
+Android build analytics31.13.2 (AGP8.13.2) uses a separate legacy path reader:
+AnalyticsPaths ignores ANDROID_USER_HOME and reads ANDROID_PREFS_ROOT directly,
+falling back to Java user.home/.android. Session initialization sets both
+variables to Config/android. This is distinct from the ADB HOME workaround.
+Modern AndroidLocations prefers ANDROID_USER_HOME; do not set ANDROID_SDK_HOME
+to the SDK location as a preferences workaround. Already running build processes
+retain their environment; apply the variables to subsequent build launches.

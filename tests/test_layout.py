@@ -228,6 +228,7 @@ class LayoutTests(unittest.TestCase):
             self.assertIn(str(self.home / ".private/Packages/maven/.m2/repository"), env["GRADLE_OPTS"])
             self.assertEqual(env["GRADLE_USER_HOME"], str(self.home / ".private/Packages/gradle"))
             self.assertEqual(env["ANDROID_USER_HOME"], str(self.home / ".private/Config/android"))
+            self.assertEqual(env["ANDROID_PREFS_ROOT"], env["ANDROID_USER_HOME"])
             with patch.dict(os.environ, env):
                 self.assertEqual(environment(self.home), env)
 
