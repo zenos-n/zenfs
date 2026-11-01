@@ -143,3 +143,13 @@ variables to Config/android. This is distinct from the ADB HOME workaround.
 Modern AndroidLocations prefers ANDROID_USER_HOME; do not set ANDROID_SDK_HOME
 to the SDK location as a preferences workaround. Already running build processes
 retain their environment; apply the variables to subsequent build launches.
+
+## Forked Java Maven caches
+
+`JAVA_TOOL_OPTIONS` carries `maven.repo.local` in addition to launcher-specific
+`GRADLE_OPTS` and `MAVEN_OPTS`. Gradle test workers (including Robolectric) are
+separate JVMs and otherwise fall back to `~/.m2/repository`. Existing JVM options
+are preserved and the repository remains under `.private/Packages/maven/.m2`.
+New JVMs must inherit the session environment; a build that clears that variable
+must supply the same property explicitly. The JVM prints its standard
+“Picked up JAVA_TOOL_OPTIONS” diagnostic.

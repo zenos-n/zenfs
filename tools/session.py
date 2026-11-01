@@ -52,6 +52,8 @@ def environment(home):
     # Gradle's mavenLocal() also reads Maven's JVM repository property.
     repository = private / "Packages/maven/.m2/repository"
     properties = {
+        # Gradle test workers are separate JVMs and do not inherit GRADLE_OPTS.
+        "JAVA_TOOL_OPTIONS": {"maven.repo.local": repository},
         "GRADLE_OPTS": {"maven.repo.local": repository},
         "MAVEN_OPTS": {"maven.repo.local": repository, "user.home": private / "Packages/maven"},
     }
