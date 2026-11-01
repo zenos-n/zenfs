@@ -12,10 +12,11 @@
   coreutils,
   xdg-user-dirs,
   glib,
+  desktop-file-utils,
 }:
 let
   python = python3.withPackages (ps: [ ps.psutil ps.watchdog ps.fusepy ps.mutagen ps.pygobject3 ]);
-  runtimePath = lib.makeBinPath [ libnotify util-linux fuse bubblewrap squashfsTools flatpak coreutils xdg-user-dirs ];
+  runtimePath = lib.makeBinPath [ libnotify util-linux fuse bubblewrap squashfsTools flatpak coreutils xdg-user-dirs desktop-file-utils ];
 in
 stdenvNoCC.mkDerivation {
   pname = "zenfs";

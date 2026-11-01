@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import subprocess
 
 from app_index import _atomic_write, _read_regular_at, simple_basename
 from layout import directory
@@ -48,3 +49,4 @@ def export_desktop_entries(home: Path, profile: Path) -> None:
                 temporary.unlink(missing_ok=True)
         owned[name] = source
     _atomic_write(state, 'desktop-exports.json', json.dumps(owned, sort_keys=True).encode(), 0o600)
+    subprocess.run(['update-desktop-database', '--quiet', str(target)], check=True)
