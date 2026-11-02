@@ -74,6 +74,7 @@ stdenvNoCC.mkDerivation {
   '';
   # Runtime acceptance is invoked explicitly inside a ZenOS VM, never at build time.
   passthru.testCommand = "libexec/zenfs/run-tests";
+  passthru.flatpakPrivateDataPatch = ./patches/flatpak-private-app-data.patch;
   meta = {
     description = "ZenFS core tools, safe hierarchy initialization, and scoped application integration";
     license = lib.licenses.napl or lib.licenses.unfree;

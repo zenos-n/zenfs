@@ -6,7 +6,7 @@ import sqlite3
 import unittest
 from unittest.mock import patch
 
-from layout import initialize_hierarchy, initialize_home
+from layout import initialize_hierarchy, initialize_home, flatpak_apps_running
 from session import environment, managed_identity, reconcile_flatpak, verify_drive
 from desktop_exports import export_desktop_entries
 from zenfsctl import ZenFSError
@@ -199,6 +199,33 @@ class LayoutTests(unittest.TestCase):
         export_desktop_entries(self.home, second)
         self.assertFalse((target / "chat.desktop").exists())
         self.assertEqual((target / "custom.desktop").read_text(), "user override")
+
+    def test_flatpak_migration_guard_reads_instance_pids_conservatively(self):
+        self.home.mkdir(parents=True)
+        instances = self.root / "instances"
+        instance = instances / "123"
+        instance.mkdir(parents=True)
+        (instance / "pid").write_text("12345")
+        with patch("layout.Path", return_value=instances), patch("layout.os.kill") as check:
+            self.assertTrue(flatpak_apps_running(self.home))
+            check.assert_called_once_with(12345, 0)
+            check.side_effect = ProcessLookupError
+            self.assertFalse(flatpak_apps_running(self.home))
+            (instance / "pid").unlink()
+            self.assertTrue(flatpak_apps_running(self.home))
+
+    def test_flatpak_data_moves_privately_only_without_live_sandboxes(self):
+        old = self.home / ".var/app/org.example.App/config/settings"
+        old.parent.mkdir(parents=True)
+        old.write_text("preserved")
+        with patch("layout.flatpak_apps_running", return_value=True):
+            initialize_home(self.home)
+        self.assertTrue(old.is_file())
+        with patch("layout.flatpak_apps_running", return_value=False):
+            initialize_home(self.home)
+            initialize_home(self.home)
+        self.assertFalse((self.home / ".var").exists())
+        self.assertEqual((self.home / ".private/Packages/flatpak-app-data/org.example.App/config/settings").read_text(), "preserved")
 
     def test_nvidia_profile_migrates_to_recorder_private_home(self):
         profile = self.home / ".nv/nvidia-application-profiles-rc.d/custom"

@@ -120,6 +120,28 @@ def relocate_codex_transcripts(source: Path, target: Path) -> None:
             connection.close()
 
 
+def flatpak_apps_running(home: Path) -> bool:
+    """Use Flatpak's instance registry without inspecting private process data."""
+    instances = Path(f"/run/user/{home.stat().st_uid}/.flatpak")
+    if not instances.exists():
+        return False
+    for instance in instances.iterdir():
+        if not instance.name.isdecimal():
+            continue
+        try:
+            pid = int((instance / "pid").read_text())
+            if pid <= 0:
+                return True
+            os.kill(pid, 0)
+            return True
+        except ProcessLookupError:
+            continue
+        except (FileNotFoundError, PermissionError, ValueError):
+            # A partially initialized or inaccessible sandbox is not safe to move.
+            return True
+    return False
+
+
 def initialize_home(home: Path, strict: bool = True) -> None:
     home = Path(os.path.abspath(home))
     directory(home)
@@ -137,6 +159,7 @@ def initialize_home(home: Path, strict: bool = True) -> None:
         (".android", "Config/android"), (".gradle", "Packages/gradle"),
         (".nv", "Packages/gpu-screen-recorder/.nv"),
         (".m2", "Packages/maven/.m2"),
+        (".var/app", "Packages/flatpak-app-data"),
         (".steam", "State/zenos/apps/68561f488261e6f7d6d63a8f8765d6f75091a558409550efeb2cc3c111f5b280/home/.steam"),
         (".steampath", "State/zenos/apps/68561f488261e6f7d6d63a8f8765d6f75091a558409550efeb2cc3c111f5b280/home/.steampath"),
         (".steampid", "State/zenos/apps/68561f488261e6f7d6d63a8f8765d6f75091a558409550efeb2cc3c111f5b280/home/.steampid"),
@@ -146,6 +169,9 @@ def initialize_home(home: Path, strict: bool = True) -> None:
     deferred = set()
     for old, new in migrations:
         source, target = home / old, private / new
+        if old == ".var/app" and (not strict or (source.exists() and flatpak_apps_running(home))):
+            deferred.add(".var")
+            continue
         # System switches can run user initialization during a live session.
         # Let the next login migrate Codex after its daemon has stopped.
         if old == ".codex":
@@ -180,13 +206,14 @@ def initialize_home(home: Path, strict: bool = True) -> None:
             relocate_codex_transcripts(source, target)
         if not strict and "/" not in old and old not in {".bash_history", ".zsh_history", ".python_history", ".lesshst"}:
             link(source, target)
+    old_var = home / ".var"
+    if old_var.is_dir() and not old_var.is_symlink() and not any(old_var.iterdir()):
+        old_var.rmdir()
     for name, target in (("lib", "Packages/lib"), ("share", "Packages"), ("state", "State")):
         link(private / "Local" / name, private / target)
     if strict:
         for source in sorted(home.iterdir()):
-            # Flatpak's CLI and libflatpak use ~/.var/app independently of XDG.
-            # Keep this exception until the complete stack redirects app data.
-            if source.name.startswith(".") and source.name not in {".private", ".var"} | deferred:
+            if source.name.startswith(".") and source.name not in {".private"} | deferred:
                 merge(source, private / "Legacy" / source.name[1:])
     for name in XDG_DIRECTORIES:
         directory(home / name, 0o750)

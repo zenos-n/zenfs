@@ -3,6 +3,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from layout import initialize_hierarchy, initialize_home
 from session import environment
@@ -73,7 +74,7 @@ class PublishSafetyTests(unittest.TestCase):
         initialize_hierarchy(self.manifest, self.root)
         self.assertEqual("kept", (self.root / "Users/alice/document").read_text())
 
-    def test_strict_init_preserves_flatpak_var_tree_and_symlink(self):
+    def test_strict_init_migrates_flatpak_data_without_following_symlinks(self):
         for symlink in (False, True):
             with self.subTest(symlink=symlink), tempfile.TemporaryDirectory(dir=self.root) as temporary:
                 root = Path(temporary)
@@ -85,24 +86,26 @@ class PublishSafetyTests(unittest.TestCase):
                 (app / "settings").write_text("real Flatpak data")
                 if symlink:
                     (home / ".var").symlink_to(data)
-                before = (home / ".var").lstat()
-                initialize_home(home)
-                initialize_home(home)
-                self.assertEqual("real Flatpak data", (home / ".var/app/org.example.Test/config/settings").read_text())
-                self.assertEqual(before.st_ino, (home / ".var").lstat().st_ino)
-                self.assertEqual(before.st_mode, (home / ".var").lstat().st_mode)
-                self.assertFalse((home / ".private/Legacy/var").exists())
+                with patch("layout.flatpak_apps_running", return_value=False):
+                    initialize_home(home)
+                    initialize_home(home)
+                self.assertFalse((home / ".var").exists())
+                if symlink:
+                    self.assertEqual((home / ".private/Legacy/var").readlink(), data)
+                    self.assertEqual((app / "settings").read_text(), "real Flatpak data")
+                else:
+                    self.assertEqual((home / ".private/Packages/flatpak-app-data/org.example.Test/config/settings").read_text(), "real Flatpak data")
 
-    def test_real_flatpak_still_uses_var_app_despite_private_xdg(self):
+    def test_real_flatpak_deletes_only_private_app_data(self):
         binary = os.environ.get("ZENFS_TEST_FLATPAK", "flatpak")
         home = self.root / "home"
-        app = home / ".var/app/org.example.ZenFSTest"
+        initialize_home(home)
+        app = home / ".private/Packages/flatpak-app-data/org.example.ZenFSTest"
         app.mkdir(parents=True)
         (app / "data").write_text("fixture to delete explicitly")
-        private = home / ".private/Packages/flatpak-apps/org.example.ZenFSTest"
-        private.mkdir(parents=True)
-        (private / "data").write_text("not Flatpak's data path")
-        initialize_home(home)
+        legacy = home / ".var/app/org.example.ZenFSTest"
+        legacy.mkdir(parents=True)
+        (legacy / "data").write_text("legacy path must not be deleted")
         env = dict(os.environ, **environment(home), HOME=str(home),
             FLATPAK_USER_DIR=str(home / ".private/Packages/flatpak"),
             FLATPAK_SYSTEM_DIR=str(self.root / "system-flatpak"),
@@ -110,10 +113,9 @@ class PublishSafetyTests(unittest.TestCase):
             DBUS_SESSION_BUS_ADDRESS=f"unix:path={self.root}/no-session-bus", LC_ALL="C")
         result = subprocess.run([binary, "uninstall", "--user", "--delete-data", "--noninteractive"],
             env=env, capture_output=True, text=True, timeout=30)
-        # Upstream deletes the data before trying to reset permissions on D-Bus.
-        # A deliberately absent bus prevents contact with the real user session.
+        # Deletion precedes the expected permission-reset failure on our absent bus.
         self.assertFalse(app.exists(), result.stderr)
-        self.assertEqual("not Flatpak's data path", (private / "data").read_text())
+        self.assertEqual("legacy path must not be deleted", (legacy / "data").read_text())
         self.assertEqual(1, result.returncode)
         self.assertIn("Could not connect", result.stderr)
 

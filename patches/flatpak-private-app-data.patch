@@ -1,0 +1,53 @@
+# Flatpak1.16.6; upstream source LGPL-2.1-or-later.
+# Keep every host app-data consumer aligned, including delete-data.
+--- a/common/flatpak-context.c
++++ b/common/flatpak-context.c
+@@ -3075,7 +3075,7 @@
+ flatpak_get_data_dir (const char *app_id)
+ {
+   g_autoptr(GFile) home = g_file_new_for_path (g_get_home_dir ());
+-  g_autoptr(GFile) var_app = g_file_resolve_relative_path (home, ".var/app");
++  g_autoptr(GFile) var_app = g_file_resolve_relative_path (home, ".private/Packages/flatpak-app-data");
+ 
+   return g_file_get_child (var_app, app_id);
+ }
+@@ -3293,7 +3293,7 @@
+       while (g_hash_table_iter_next (&iter, &key, NULL))
+         {
+           const char *persist = key;
+-          g_autofree char *appdir = g_build_filename (g_get_home_dir (), ".var/app", app_id, NULL);
++          g_autofree char *appdir = g_build_filename (g_get_home_dir (), ".private/Packages/flatpak-app-data", app_id, NULL);
+           g_autofree char *dest = g_build_filename (g_get_home_dir (), persist, NULL);
+           g_autoptr(GError) local_error = NULL;
+ 
+--- a/common/flatpak-run.c
++++ b/common/flatpak-run.c
+@@ -1282,7 +1282,7 @@
+       g_autofree char *filename = NULL;
+ 
+       filename = g_build_filename (g_get_home_dir (),
+-                                   ".var/app", app_id,
++                                   ".private/Packages/flatpak-app-data", app_id,
+                                    "config/glib-2.0/settings/keyfile",
+                                    NULL);
+ 
+--- a/app/flatpak-builtins-uninstall.c
++++ b/app/flatpak-builtins-uninstall.c
+@@ -134,7 +134,7 @@
+                      const char *app_id,
+                      GError    **error)
+ {
+-  g_autofree char *path = g_build_filename (g_get_home_dir (), ".var", "app", app_id, NULL);
++  g_autofree char *path = g_build_filename (g_get_home_dir (), ".private", "Packages", "flatpak-app-data", app_id, NULL);
+   g_autoptr(GFile) file = g_file_new_for_path (path);
+ 
+   if (!yes_opt &&
+@@ -559,7 +559,7 @@
+   if (opt_delete_data && argc < 2)
+     {
+       g_autoptr(GFileEnumerator) enumerator = NULL;
+-      g_autofree char *path = g_build_filename (g_get_home_dir (), ".var", "app", NULL);
++      g_autofree char *path = g_build_filename (g_get_home_dir (), ".private", "Packages", "flatpak-app-data", NULL);
+       g_autoptr(GFile) app_dir = g_file_new_for_path (path);
+ 
+       enumerator = g_file_enumerate_children (app_dir,

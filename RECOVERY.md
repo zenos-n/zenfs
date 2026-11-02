@@ -62,20 +62,20 @@ the NixOS activation shell on refusal, before its account activation snippet.
 `zenfs-layout --root PATH --manifest FILE` permits fixture/offline initialization;
 normal activation omits `--root` and therefore uses `/`.
 
-## Flatpak limitation
+## Flatpak application data
 
-The packaged upstream Flatpak 1.16.6 CLI and libflatpak use `~/.var/app` for
-application data independently of `XDG_DATA_HOME`. Strict initialization now
-preserves `.var` unchanged, including an existing symlink, rather than moving
-it into Legacy. No new compatibility symlink or HOME-changing wrapper is used.
-Private XDG installation/export paths do not imply private application data.
+Strict ZenOS overlays the same Flatpak CLI/library/helper package with
+`patches/flatpak-private-app-data.patch` (Flatpak1.16.6, LGPL-2.1-or-later).
+The patch redirects all host app-data paths, including sandbox persistence,
+dconf conversion and uninstall cleanup, to
+`~/.private/Packages/flatpak-app-data/<app-id>`. HOME and document paths stay
+unchanged; the existing export policy still hides other applications' data.
 
-Full app-data relocation is not implemented. No patched `passthru.flatpak` or
-global overlay is supplied. Such integration must cover launch/data-directory
-creation, persistent filesystem mappings, dconf migration, uninstall cleanup,
-and all CLI/libflatpak consumers together before migrating existing data.
-Data already moved by an older implementation into `.private/Legacy/var` is
-not automatically restored or merged; this change only preserves current `.var`.
+Initialization migrates `.var/app` and preserves existing settings, refusing
+conflicting files. It defers migration while a same-account Flatpak sandbox
+is live, including when its instance metadata cannot be read safely. Close those
+apps and initialize again before using the new package. Old data moved by
+historical implementations into `.private/Legacy/var` is not silently merged.
 
 ## Verification hooks
 
