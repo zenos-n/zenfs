@@ -219,7 +219,8 @@ class LayoutTests(unittest.TestCase):
         old.parent.mkdir(parents=True)
         old.write_text("preserved")
         with patch("layout.flatpak_apps_running", return_value=True):
-            initialize_home(self.home)
+            with self.assertRaisesRegex(ZenFSError, "close running Flatpak"):
+                initialize_home(self.home)
         self.assertTrue(old.is_file())
         with patch("layout.flatpak_apps_running", return_value=False):
             initialize_home(self.home)

@@ -169,9 +169,11 @@ def initialize_home(home: Path, strict: bool = True) -> None:
     deferred = set()
     for old, new in migrations:
         source, target = home / old, private / new
-        if old == ".var/app" and (not strict or (source.exists() and flatpak_apps_running(home))):
-            deferred.add(".var")
-            continue
+        if old == ".var/app":
+            if not strict:
+                continue
+            if source.exists() and flatpak_apps_running(home):
+                raise ZenFSError("close running Flatpak apps before migrating .var/app, then retry initialization")
         # System switches can run user initialization during a live session.
         # Let the next login migrate Codex after its daemon has stopped.
         if old == ".codex":

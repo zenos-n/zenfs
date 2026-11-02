@@ -72,9 +72,10 @@ dconf conversion and uninstall cleanup, to
 unchanged; the existing export policy still hides other applications' data.
 
 Initialization migrates `.var/app` and preserves existing settings, refusing
-conflicting files. It defers migration while a same-account Flatpak sandbox
+conflicting files. Initialization fails before moving app data while a same-account Flatpak sandbox
 is live, including when its instance metadata cannot be read safely. Close those
-apps and initialize again before using the new package. Old data moved by
+apps and initialize again before using the new package; this prevents a new
+private directory from being used alongside an active legacy directory. Old data moved by
 historical implementations into `.private/Legacy/var` is not silently merged.
 
 ## Verification hooks
