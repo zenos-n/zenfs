@@ -1,4 +1,7 @@
 from pathlib import Path
+import os
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -12,13 +15,45 @@ class CompatibilityTests(unittest.TestCase):
     def test_steam_uses_a_private_home_with_public_folders(self) -> None:
         settings = compat.default_settings(compat.STEAM_TOKEN)
         self.assertTrue(settings["syntheticHome"])
-        self.assertEqual(sorted(compat.SHAREABLE_DIRECTORIES), settings["sharedDirectories"])
+        self.assertEqual(sorted(compat.PUBLIC_DIRECTORIES), settings["sharedDirectories"])
 
     def test_gnosis_defaults_to_private_home_with_public_folders(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             settings = compat.load_settings(Path(directory), compat.GNOSIS_TOKEN)
             self.assertTrue(settings["syntheticHome"])
             self.assertEqual(sorted(compat.SHAREABLE_DIRECTORIES), settings["sharedDirectories"])
+
+    @unittest.skipUnless(os.environ.get("ZENFS_TEST_BWRAP"), "requires bubblewrap")
+    def test_browser_reads_project_html_and_assets_without_leaking_home_files(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory) / "home"
+            (home / ".private").mkdir(parents=True)
+            project = home / "Projects" / "demo"
+            project.mkdir(parents=True)
+            (project / "index ł #1.html").write_text("local HTML")
+            (project / "style.css").write_text("relative asset")
+            (home / ".host-only").write_text("hidden")
+            script = (
+                "from pathlib import Path; p=Path.home(); "
+                "assert (p/'Projects/demo/index ł #1.html').read_text() == 'local HTML'; "
+                "assert (p/'Projects/demo/style.css').read_text() == 'relative asset'; "
+                "assert not (p/'.host-only').exists(); "
+                "(p/'.browser-cache').write_text('private')"
+            )
+            command = compat.sandbox_command(
+                home, compat.GNOSIS_TOKEN, [sys.executable, "-c", script],
+                compat.default_settings(compat.GNOSIS_TOKEN),
+                runtime_directory=Path(directory), bwrap=os.environ["ZENFS_TEST_BWRAP"],
+            )
+            subprocess.run(command, check=True, timeout=10)
+            self.assertFalse((home / ".browser-cache").exists())
+            self.assertEqual("private", (compat.app_state(home, compat.GNOSIS_TOKEN) / "home/.browser-cache").read_text())
+
+    def test_explicit_gnosis_shares_remain_explicit(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            compat.configure(home, compat.GNOSIS_TOKEN, shared_directories=["Documents"])
+            self.assertEqual(["Documents"], compat.load_settings(home, compat.GNOSIS_TOKEN)["sharedDirectories"])
 
     def test_seahorse_defaults_to_a_synthetic_home(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

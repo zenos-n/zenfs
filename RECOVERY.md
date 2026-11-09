@@ -154,3 +154,12 @@ are preserved and the repository remains under `.private/Packages/maven/.m2`.
 New JVMs must inherit the session environment; a build that clears that variable
 must supply the same property explicitly. The JVM prints its standard
 “Picked up JAVA_TOOL_OPTIONS” diagnostic.
+
+## Browser access to project files
+
+Gnosis's synthetic home shares `Projects` as well as the standard public folders.
+This lets desktop HTML launches, typed `file://` URLs and relative project assets
+reach the same files visible outside the wrapper. Generated browser dotfiles still
+stay in its synthetic home. Steam's default folders and explicitly saved sharing
+choices are preserved. Run the focused compatibility test with
+`ZENFS_TEST_BWRAP=/path/to/bwrap PYTHONPATH=recovered/packages/app-index python3 -m unittest discover -s recovered/tests/app-index -p test_compat.py`.
