@@ -261,6 +261,35 @@ class LayoutTests(unittest.TestCase):
             with patch.dict(os.environ, env):
                 self.assertEqual(environment(self.home), env)
 
+    def test_attachments_and_emulator_token_keep_private_bytes_and_permissions(self):
+        attachment = self.home / ".codex-attachments/thread/upload/image.jpg"
+        attachment.parent.mkdir(parents=True)
+        attachment.write_bytes(b"image fixture")
+        token = self.home / ".emulator_console_auth_token"
+        token.write_bytes(b"test-only token")
+        token.chmod(0o600)
+        initialize_home(self.home)
+        initialize_home(self.home)
+        private = self.home / ".private"
+        self.assertEqual((private / "Packages/codex/attachments/thread/upload/image.jpg").read_bytes(), b"image fixture")
+        migrated = private / "Packages/android-tools/.emulator_console_auth_token"
+        self.assertEqual(migrated.read_bytes(), b"test-only token")
+        self.assertEqual(migrated.stat().st_mode & 0o777, 0o600)
+        self.assertFalse((self.home / ".codex-attachments").exists())
+        self.assertFalse(token.exists())
+
+    def test_emulator_token_collision_preserves_both_tokens(self):
+        old = self.home / ".emulator_console_auth_token"
+        old.parent.mkdir(parents=True)
+        old.write_bytes(b"old fixture")
+        new = self.home / ".private/Packages/android-tools/.emulator_console_auth_token"
+        new.parent.mkdir(parents=True)
+        new.write_bytes(b"current fixture")
+        with self.assertRaisesRegex(ZenFSError, "collision"):
+            initialize_home(self.home)
+        self.assertEqual(old.read_bytes(), b"old fixture")
+        self.assertEqual(new.read_bytes(), b"current fixture")
+
     def test_codex_and_npm_migrate_to_their_runtime_paths(self):
         for name in [".codex", ".npm"]:
             (self.home / name).mkdir(parents=True, exist_ok=True)

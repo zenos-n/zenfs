@@ -163,3 +163,23 @@ reach the same files visible outside the wrapper. Generated browser dotfiles sti
 stay in its synthetic home. Steam's default folders and explicitly saved sharing
 choices are preserved. Run the focused compatibility test with
 `ZENFS_TEST_BWRAP=/path/to/bwrap PYTHONPATH=recovered/packages/app-index python3 -m unittest discover -s recovered/tests/app-index -p test_compat.py`.
+
+
+## Legacy attachments and emulator console token
+
+Known-home migration sends `.codex-attachments` to
+`.private/Packages/codex/attachments` and the emulator console token to
+`.private/Packages/android-tools/.emulator_console_auth_token`, where the wrapped
+ADB command already looks. Permissions and bytes are preserved; conflicting
+tokens fail without overwriting either copy. Current Codex0.169 TUI attachment
+storage already uses CODEX_HOME/attachments. Moving old attachment files also
+requires updating any inactive conversation's explicit file reference; back up
+that conversation first and never rewrite an active rollout.
+
+An Android emulator's console auth token follows HOME independently of
+ANDROID_USER_HOME/ANDROID_EMULATOR_HOME. SDK emulators and emulator test fixtures
+must use a temporary/private HOME (for shared ADB console auth, the existing
+`.private/Packages/android-tools` home), while preserving the shared Android/XDG
+variables. Never clear or replace real pairing keys or the console token to
+clean up a test. Raw SDK paths can bypass package wrappers; environment aliases
+alone cannot enforce a filesystem-wide policy.

@@ -156,6 +156,8 @@ def initialize_home(home: Path, strict: bool = True) -> None:
         (".gnupg", "Config/gnupg"), (".ssh", "Config/ssh"),
         (".mozilla", "Config/mozilla"), (".bash_history", "State/shell/bash_history"),
         (".codex", "Packages/codex"), (".npm", "Live/npm"),
+        (".codex-attachments", "Packages/codex/attachments"),
+        (".emulator_console_auth_token", "Packages/android-tools/.emulator_console_auth_token"),
         (".android", "Config/android"), (".gradle", "Packages/gradle"),
         (".nv", "Packages/gpu-screen-recorder/.nv"),
         (".m2", "Packages/maven/.m2"),
